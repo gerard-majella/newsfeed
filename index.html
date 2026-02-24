@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Industry Newsfeed</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --accent: #4f8ef7;
+      --accent2: #7c3aed;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --border: #2d3347;
+      --tag-bg: #1e2640;
+      --tag-text: #a5b4fc;
+      --radius: 10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 17, 23, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+
+    .header-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #week-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* ── Tabs ────────────────────────────────────────────── */
+    .tabs-wrapper {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tabs-wrapper::-webkit-scrollbar { display: none; }
+
+    .tabs {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      padding: 0 1.5rem;
+      gap: 0.25rem;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0.85rem 1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .tab-btn:hover { color: var(--text); }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── Main content ────────────────────────────────────── */
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .panel-description {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+
+    /* ── Article cards ───────────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .card-title a {
+      font-size: 0.975rem;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      line-height: 1.4;
+    }
+
+    .card-title a:hover { color: var(--accent); }
+
+    .card-meta {
+      display: flex;
+      gap: 0.75rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .card-meta .source { font-weight: 500; }
+
+    .card-summary {
+      font-size: 0.86rem;
+      color: var(--muted);
+      line-height: 1.55;
+      flex: 1;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .tag {
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+    }
+
+    /* ── Empty / error states ────────────────────────────── */
+    .empty {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 2rem 0;
+    }
+
+    #status-banner {
+      display: none;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.65rem 1rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <span class="header-title">Industry Newsfeed</span>
+    <span id="week-label">Loading…</span>
+  </div>
+</header>
+
+<div class="tabs-wrapper">
+  <div class="tabs" id="tabs" role="tablist"></div>
+</div>
+
+<main>
+  <div id="status-banner"></div>
+  <div id="panels"></div>
+</main>
+
+<script>
+  // ── Fallback data (used when data.json cannot be fetched) ──────────────────
+  const FALLBACK = {
+    "updated": "2025-02-24T00:00:00Z",
+    "industries": [
+      {
+        "id": "manufacturing",
+        "label": "Manufacturing",
+        "description": "Keywords: industrial, manufacturing, ICS",
+        "articles": [
+          {
+            "title": "Sample Article Title",
+            "source": "Sample Source",
+            "date": "2025-02-24",
+            "url": "https://example.com",
+            "summary": "A brief summary of the article goes here.",
+            "tags": ["ICS", "Manufacturing"]
+          }
+        ]
+      }
+    ]
+  };
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function formatWeek(iso) {
+    try {
+      const d = new Date(iso);
+      return "Week of " + d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    } catch (_) {
+      return "Week of " + iso;
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function buildCard(article) {
+    const tags = (article.tags || [])
+      .map(t => `<span class="tag">${escapeHtml(t)}</span>`)
+      .join("");
+
+    return `
+      <article class="card">
+        <div class="card-title">
+          <a href="${escapeHtml(article.url || "#")}" target="_blank" rel="noopener noreferrer">
+            ${escapeHtml(article.title || "Untitled")}
+          </a>
+        </div>
+        <div class="card-meta">
+          <span class="source">${escapeHtml(article.source || "")}</span>
+          <span class="date">${escapeHtml(article.date || "")}</span>
+        </div>
+        <p class="card-summary">${escapeHtml(article.summary || "")}</p>
+        ${tags ? `<div class="card-tags">${tags}</div>` : ""}
+      </article>`;
+  }
+
+  function render(data, usedFallback) {
+    const { updated, industries = [] } = data;
+
+    // Header week label
+    document.getElementById("week-label").textContent = formatWeek(updated);
+
+    // Status banner
+    if (usedFallback) {
+      const banner = document.getElementById("status-banner");
+      banner.style.display = "block";
+      banner.textContent = "ℹ️ Could not load data.json — showing sample data.";
+    }
+
+    const tabsEl = document.getElementById("tabs");
+    const panelsEl = document.getElementById("panels");
+
+    industries.forEach((industry, idx) => {
+      const id = escapeHtml(industry.id || `industry-${idx}`);
+      const label = escapeHtml(industry.label || id);
+
+      // Tab button
+      const btn = document.createElement("button");
+      btn.className = "tab-btn" + (idx === 0 ? " active" : "");
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-selected", idx === 0 ? "true" : "false");
+      btn.setAttribute("aria-controls", `panel-${id}`);
+      btn.dataset.panel = `panel-${id}`;
+      btn.textContent = industry.label || id;
+      tabsEl.appendChild(btn);
+
+      // Panel
+      const articles = industry.articles || [];
+      const cardsHtml = articles.length
+        ? articles.map(buildCard).join("")
+        : `<p class="empty">No articles available.</p>`;
+
+      const panel = document.createElement("div");
+      panel.className = "panel" + (idx === 0 ? " active" : "");
+      panel.id = `panel-${id}`;
+      panel.setAttribute("role", "tabpanel");
+      panel.innerHTML = `
+        ${industry.description ? `<p class="panel-description">${escapeHtml(industry.description)}</p>` : ""}
+        <div class="cards">${cardsHtml}</div>`;
+      panelsEl.appendChild(panel);
+    });
+
+    // Tab switching
+    tabsEl.addEventListener("click", e => {
+      const btn = e.target.closest(".tab-btn");
+      if (!btn) return;
+      tabsEl.querySelectorAll(".tab-btn").forEach(b => {
+        b.classList.remove("active");
+        b.setAttribute("aria-selected", "false");
+      });
+      panelsEl.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      btn.setAttribute("aria-selected", "true");
+      document.getElementById(btn.dataset.panel).classList.add("active");
+    });
+  }
+
+  // ── Bootstrap ──────────────────────────────────────────────────────────────
+  (async () => {
+    let data = null;
+    let usedFallback = false;
+
+    try {
+      const url = `./data.json?_=${Date.now()}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    } catch (err) {
+      console.warn("data.json fetch failed, using fallback:", err);
+      data = FALLBACK;
+      usedFallback = true;
+    }
+
+    render(data, usedFallback);
+  })();
+</script>
+</body>
+</html>
