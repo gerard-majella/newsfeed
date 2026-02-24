@@ -1,0 +1,20 @@
+{
+  "updated": "2025-02-24T00:00:00Z",
+  "industries": [
+    {
+      "id": "manufacturing",
+      "label": "Manufacturing",
+      "description": "Keywords: industrial, manufacturing, ICS",
+      "articles": [
+        {
+          "title": "Sample Article Title",
+          "source": "Sample Source",
+          "date": "2025-02-24",
+          "url": "https://example.com",
+          "summary": "A brief summary of the article goes here.",
+          "tags": ["ICS", "Manufacturing"]
+        }
+      ]
+    }
+  ]
+}
