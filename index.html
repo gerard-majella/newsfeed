@@ -155,7 +155,13 @@
       color: var(--muted);
     }
 
-    .card-meta .source { font-weight: 500; }
+    .card-meta .source {
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(79,142,247,0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
 
     .card-summary {
       font-size: 0.86rem;
@@ -240,13 +246,21 @@
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+  function parseDateSafe(iso) {
+    if (!iso) return null;
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    const d = dateOnly
+      ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+      : new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
   function formatWeek(iso) {
-    try {
-      const d = new Date(iso);
-      return "Week of " + d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-    } catch (_) {
-      return "Week of " + iso;
-    }
+    const d = parseDateSafe(iso);
+    return "Week of " + (d ? d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : (iso || ""));
+  }
+  function formatDate(iso) {
+    const d = parseDateSafe(iso);
+    return d ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : (iso || "");
   }
 
   function escapeHtml(str) {
@@ -272,7 +286,7 @@
         </div>
         <div class="card-meta">
           <span class="source">${escapeHtml(article.source || "")}</span>
-          <span class="date">${escapeHtml(article.date || "")}</span>
+          <span class="date">${escapeHtml(formatDate(article.date || ""))}</span>
         </div>
         <p class="card-summary">${escapeHtml(article.summary || "")}</p>
         ${tags ? `<div class="card-tags">${tags}</div>` : ""}
