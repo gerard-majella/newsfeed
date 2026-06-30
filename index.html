@@ -62,41 +62,106 @@
       color: var(--muted);
     }
 
-    /* ── Tabs ────────────────────────────────────────────── */
-    .tabs-wrapper {
+    /* ── Industry select ───────────────────────────────────── */
+    .select-wrapper {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      overflow-x: auto;
-      scrollbar-width: none;
+      padding: 0.85rem 1.5rem;
     }
-    .tabs-wrapper::-webkit-scrollbar { display: none; }
 
-    .tabs {
+    .select-inner {
       max-width: 1200px;
       margin: 0 auto;
       display: flex;
-      padding: 0 1.5rem;
-      gap: 0.25rem;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
     }
 
-    .tab-btn {
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .clear-btn {
       background: none;
-      border: none;
+      border: 1px solid var(--border);
       color: var(--muted);
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       font-weight: 500;
-      padding: 0.85rem 1rem;
+      font-family: inherit;
+      padding: 0.5rem 0.85rem;
+      border-radius: var(--radius);
       cursor: pointer;
-      border-bottom: 2px solid transparent;
-      white-space: nowrap;
-      transition: color 0.15s, border-color 0.15s;
+      transition: border-color 0.15s, color 0.15s;
     }
 
-    .tab-btn:hover { color: var(--text); }
+    .clear-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
 
-    .tab-btn.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
+    .select-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .select-shell {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .industry-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      padding: 0.55rem 2.25rem 0.55rem 0.9rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      min-width: 220px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .industry-select:hover {
+      border-color: var(--accent);
+    }
+
+    .industry-select:focus-visible {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.25);
+    }
+
+    .industry-select option {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .select-shell::after {
+      content: "";
+      position: absolute;
+      right: 0.85rem;
+      top: 50%;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid var(--muted);
+      border-bottom: 2px solid var(--muted);
+      transform: translateY(-65%) rotate(45deg);
+      pointer-events: none;
+    }
+
+    .industry-count {
+      font-size: 0.78rem;
+      color: var(--muted);
     }
 
     /* ── Main content ────────────────────────────────────── */
@@ -185,6 +250,12 @@
       border-radius: 999px;
     }
 
+    .actor-tag {
+      background: rgba(124, 58, 237, 0.15);
+      color: #c4b5fd;
+      font-weight: 600;
+    }
+
     /* ── Empty / error states ────────────────────────────── */
     .empty {
       color: var(--muted);
@@ -213,8 +284,25 @@
   </div>
 </header>
 
-<div class="tabs-wrapper">
-  <div class="tabs" id="tabs" role="tablist"></div>
+<div class="select-wrapper">
+  <div class="select-inner">
+    <div class="filter-group">
+      <label class="select-label" for="industry-select">Industry</label>
+      <div class="select-shell">
+        <select id="industry-select" class="industry-select" aria-label="Select industry"></select>
+      </div>
+    </div>
+    <div class="filter-group">
+      <label class="select-label" for="actor-select">Threat actor</label>
+      <div class="select-shell">
+        <select id="actor-select" class="industry-select" aria-label="Select threat actor">
+          <option value="">All actors</option>
+        </select>
+      </div>
+    </div>
+    <button id="clear-filters" class="clear-btn" type="button" hidden>Clear filters</button>
+    <span class="industry-count" id="industry-count"></span>
+  </div>
 </div>
 
 <main>
@@ -226,6 +314,10 @@
   // ── Fallback data (used when data.json cannot be fetched) ──────────────────
   const FALLBACK = {
     "updated": "2025-02-24T00:00:00Z",
+    "threatActors": [
+      { "id": "lockbit", "label": "LockBit" },
+      { "id": "akira", "label": "Akira" }
+    ],
     "industries": [
       {
         "id": "manufacturing",
@@ -238,7 +330,8 @@
             "date": "2025-02-24",
             "url": "https://example.com",
             "summary": "A brief summary of the article goes here.",
-            "tags": ["ICS", "Manufacturing"]
+            "tags": ["ICS", "Manufacturing"],
+            "actors": ["Akira"]
           }
         ]
       }
@@ -276,6 +369,9 @@
     const tags = (article.tags || [])
       .map(t => `<span class="tag">${escapeHtml(t)}</span>`)
       .join("");
+    const actorBadges = (article.actors || [])
+      .map(a => `<span class="tag actor-tag">${escapeHtml(a)}</span>`)
+      .join("");
 
     return `
       <article class="card">
@@ -289,7 +385,7 @@
           <span class="date">${escapeHtml(formatDate(article.date || ""))}</span>
         </div>
         <p class="card-summary">${escapeHtml(article.summary || "")}</p>
-        ${tags ? `<div class="card-tags">${tags}</div>` : ""}
+        ${actorBadges || tags ? `<div class="card-tags">${actorBadges}${tags}</div>` : ""}
       </article>`;
   }
 
@@ -306,52 +402,101 @@
       banner.textContent = "ℹ️ Could not load data.json — showing sample data.";
     }
 
-    const tabsEl = document.getElementById("tabs");
+    const industrySelect = document.getElementById("industry-select");
+    const actorSelect = document.getElementById("actor-select");
+    const clearBtn = document.getElementById("clear-filters");
+    const countEl = document.getElementById("industry-count");
     const panelsEl = document.getElementById("panels");
+
+    // "All industries" option lets the actor filter search across every industry at once
+    const allOpt = document.createElement("option");
+    allOpt.value = "__all__";
+    allOpt.textContent = "All industries";
+    industrySelect.appendChild(allOpt);
 
     industries.forEach((industry, idx) => {
       const id = escapeHtml(industry.id || `industry-${idx}`);
-      const label = escapeHtml(industry.label || id);
+      const label = industry.label || id;
+      const count = (industry.articles || []).length;
 
-      // Tab button
-      const btn = document.createElement("button");
-      btn.className = "tab-btn" + (idx === 0 ? " active" : "");
-      btn.setAttribute("role", "tab");
-      btn.setAttribute("aria-selected", idx === 0 ? "true" : "false");
-      btn.setAttribute("aria-controls", `panel-${id}`);
-      btn.dataset.panel = `panel-${id}`;
-      btn.textContent = industry.label || id;
-      tabsEl.appendChild(btn);
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = `${label} (${count})`;
+      industrySelect.appendChild(opt);
+    });
+    industrySelect.value = industries[0] ? (industries[0].id || "industry-0") : "__all__";
 
-      // Panel
-      const articles = industry.articles || [];
-      const cardsHtml = articles.length
-        ? articles.map(buildCard).join("")
-        : `<p class="empty">No articles available.</p>`;
+    // Threat actor dropdown: populated from the master list so it stays stable
+    // even when a given actor has zero matches this week.
+    const actorList = data.threatActors || [];
+    actorList.forEach(actor => {
+      const opt = document.createElement("option");
+      opt.value = actor.label;
+      opt.textContent = actor.label;
+      actorSelect.appendChild(opt);
+    });
 
+    function buildPanel(industry) {
+      const id = escapeHtml(industry.id);
       const panel = document.createElement("div");
-      panel.className = "panel" + (idx === 0 ? " active" : "");
+      panel.className = "panel";
       panel.id = `panel-${id}`;
+      panel.dataset.industryId = industry.id;
       panel.setAttribute("role", "tabpanel");
       panel.innerHTML = `
         ${industry.description ? `<p class="panel-description">${escapeHtml(industry.description)}</p>` : ""}
-        <div class="cards">${cardsHtml}</div>`;
-      panelsEl.appendChild(panel);
+        <div class="cards"></div>`;
+      return panel;
+    }
+
+    industries.forEach(industry => panelsEl.appendChild(buildPanel(industry)));
+
+    function applyFilters() {
+      const industryFilter = industrySelect.value;
+      const actorFilter = actorSelect.value;
+
+      clearBtn.hidden = industryFilter === (industries[0]?.id || "__all__") && !actorFilter;
+
+      panelsEl.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+
+      let visibleCount = 0;
+      let visiblePanelCount = 0;
+
+      industries.forEach(industry => {
+        const showThisIndustry = industryFilter === "__all__" || industryFilter === industry.id;
+        if (!showThisIndustry) return;
+
+        const panel = document.getElementById(`panel-${escapeHtml(industry.id)}`);
+        const cardsEl = panel.querySelector(".cards");
+
+        const articles = (industry.articles || []).filter(a =>
+          !actorFilter || (a.actors || []).includes(actorFilter)
+        );
+
+        cardsEl.innerHTML = articles.length
+          ? articles.map(buildCard).join("")
+          : `<p class="empty">No articles match the current filters.</p>`;
+
+        visibleCount += articles.length;
+        panel.classList.add("active");
+        visiblePanelCount += 1;
+      });
+
+      const label = visiblePanelCount > 1 ? "across selected industries" : "";
+      countEl.textContent = visibleCount
+        ? `${visibleCount} article${visibleCount === 1 ? "" : "s"} ${label}`.trim()
+        : "No matching articles";
+    }
+
+    industrySelect.addEventListener("change", applyFilters);
+    actorSelect.addEventListener("change", applyFilters);
+    clearBtn.addEventListener("click", () => {
+      industrySelect.value = industries[0] ? (industries[0].id || "industry-0") : "__all__";
+      actorSelect.value = "";
+      applyFilters();
     });
 
-    // Tab switching
-    tabsEl.addEventListener("click", e => {
-      const btn = e.target.closest(".tab-btn");
-      if (!btn) return;
-      tabsEl.querySelectorAll(".tab-btn").forEach(b => {
-        b.classList.remove("active");
-        b.setAttribute("aria-selected", "false");
-      });
-      panelsEl.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-      btn.classList.add("active");
-      btn.setAttribute("aria-selected", "true");
-      document.getElementById(btn.dataset.panel).classList.add("active");
-    });
+    applyFilters();
   }
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
