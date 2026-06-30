@@ -256,6 +256,12 @@
       font-weight: 600;
     }
 
+    .type-tag {
+      background: rgba(34, 197, 94, 0.12);
+      color: #86efac;
+      font-weight: 600;
+    }
+
     /* ── Empty / error states ────────────────────────────── */
     .empty {
       color: var(--muted);
@@ -300,6 +306,14 @@
         </select>
       </div>
     </div>
+    <div class="filter-group">
+      <label class="select-label" for="type-select">Type</label>
+      <div class="select-shell">
+        <select id="type-select" class="industry-select" aria-label="Select content type">
+          <option value="">All types</option>
+        </select>
+      </div>
+    </div>
     <button id="clear-filters" class="clear-btn" type="button" hidden>Clear filters</button>
     <span class="industry-count" id="industry-count"></span>
   </div>
@@ -315,8 +329,12 @@
   const FALLBACK = {
     "updated": "2025-02-24T00:00:00Z",
     "threatActors": [
-      { "id": "lockbit", "label": "LockBit" },
-      { "id": "akira", "label": "Akira" }
+      { "id": "akira", "label": "Akira" },
+      { "id": "lockbit", "label": "LockBit" }
+    ],
+    "contentTypes": [
+      { "id": "malware", "label": "Malware" },
+      { "id": "vulnerability", "label": "Vulnerabilities" }
     ],
     "industries": [
       {
@@ -331,7 +349,8 @@
             "url": "https://example.com",
             "summary": "A brief summary of the article goes here.",
             "tags": ["ICS", "Manufacturing"],
-            "actors": ["Akira"]
+            "actors": ["Akira"],
+            "contentTypes": ["Malware"]
           }
         ]
       }
@@ -372,6 +391,9 @@
     const actorBadges = (article.actors || [])
       .map(a => `<span class="tag actor-tag">${escapeHtml(a)}</span>`)
       .join("");
+    const typeBadges = (article.contentTypes || [])
+      .map(t => `<span class="tag type-tag">${escapeHtml(t)}</span>`)
+      .join("");
 
     return `
       <article class="card">
@@ -385,7 +407,7 @@
           <span class="date">${escapeHtml(formatDate(article.date || ""))}</span>
         </div>
         <p class="card-summary">${escapeHtml(article.summary || "")}</p>
-        ${actorBadges || tags ? `<div class="card-tags">${actorBadges}${tags}</div>` : ""}
+        ${typeBadges || actorBadges || tags ? `<div class="card-tags">${typeBadges}${actorBadges}${tags}</div>` : ""}
       </article>`;
   }
 
@@ -399,16 +421,21 @@
     if (usedFallback) {
       const banner = document.getElementById("status-banner");
       banner.style.display = "block";
-      banner.textContent = "ℹ️ Could not load data.json — showing sample data.";
+      banner.textContent = "Could not load data.json, showing sample data.";
     }
 
     const industrySelect = document.getElementById("industry-select");
     const actorSelect = document.getElementById("actor-select");
+    const typeSelect = document.getElementById("type-select");
     const clearBtn = document.getElementById("clear-filters");
     const countEl = document.getElementById("industry-count");
     const panelsEl = document.getElementById("panels");
 
-    // "All industries" option lets the actor filter search across every industry at once
+    // Default view: the catch-all bucket, since it holds the bulk of daily volume
+    // and most named industries are empty on any given day. Falls back to "all"
+    // if for some reason there's no "other" bucket in this payload.
+    const defaultIndustryId = industries.some(i => i.id === "other") ? "other" : "__all__";
+
     const allOpt = document.createElement("option");
     allOpt.value = "__all__";
     allOpt.textContent = "All industries";
@@ -424,16 +451,25 @@
       opt.textContent = `${label} (${count})`;
       industrySelect.appendChild(opt);
     });
-    industrySelect.value = industries[0] ? (industries[0].id || "industry-0") : "__all__";
+    industrySelect.value = defaultIndustryId;
 
-    // Threat actor dropdown: populated from the master list so it stays stable
-    // even when a given actor has zero matches this week.
+    // Threat actor dropdown: populated from the master list (already alphabetized
+    // by the Format node) so it stays stable even when an actor has zero matches.
     const actorList = data.threatActors || [];
     actorList.forEach(actor => {
       const opt = document.createElement("option");
       opt.value = actor.label;
       opt.textContent = actor.label;
       actorSelect.appendChild(opt);
+    });
+
+    // Content type dropdown (Vulnerabilities, Malware, Breach, Law Enforcement, Threat)
+    const typeList = data.contentTypes || [];
+    typeList.forEach(type => {
+      const opt = document.createElement("option");
+      opt.value = type.label;
+      opt.textContent = type.label;
+      typeSelect.appendChild(opt);
     });
 
     function buildPanel(industry) {
@@ -454,8 +490,9 @@
     function applyFilters() {
       const industryFilter = industrySelect.value;
       const actorFilter = actorSelect.value;
+      const typeFilter = typeSelect.value;
 
-      clearBtn.hidden = industryFilter === (industries[0]?.id || "__all__") && !actorFilter;
+      clearBtn.hidden = industryFilter === defaultIndustryId && !actorFilter && !typeFilter;
 
       panelsEl.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
 
@@ -466,12 +503,19 @@
         const showThisIndustry = industryFilter === "__all__" || industryFilter === industry.id;
         if (!showThisIndustry) return;
 
+        const articles = (industry.articles || []).filter(a =>
+          (!actorFilter || (a.actors || []).includes(actorFilter)) &&
+          (!typeFilter || (a.contentTypes || []).includes(typeFilter))
+        );
+
+        // When browsing "All industries", skip rendering a panel at all if it has
+        // nothing to show, rather than stacking up empty "No articles" blocks.
+        // A single named industry stays visible even when empty so its filters
+        // and keyword description remain visible as confirmation of what was searched.
+        if (industryFilter === "__all__" && articles.length === 0) return;
+
         const panel = document.getElementById(`panel-${escapeHtml(industry.id)}`);
         const cardsEl = panel.querySelector(".cards");
-
-        const articles = (industry.articles || []).filter(a =>
-          !actorFilter || (a.actors || []).includes(actorFilter)
-        );
 
         cardsEl.innerHTML = articles.length
           ? articles.map(buildCard).join("")
@@ -490,9 +534,11 @@
 
     industrySelect.addEventListener("change", applyFilters);
     actorSelect.addEventListener("change", applyFilters);
+    typeSelect.addEventListener("change", applyFilters);
     clearBtn.addEventListener("click", () => {
-      industrySelect.value = industries[0] ? (industries[0].id || "industry-0") : "__all__";
+      industrySelect.value = defaultIndustryId;
       actorSelect.value = "";
+      typeSelect.value = "";
       applyFilters();
     });
 
